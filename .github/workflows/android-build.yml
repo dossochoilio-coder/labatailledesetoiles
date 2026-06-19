@@ -1,6 +1,7 @@
 name: Build DOSCO APK
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -22,19 +23,26 @@ jobs:
       - name: Install deps
         run: npm install
 
-      - name: Build Vite app
+      - name: Build app
         run: npm run build
 
       - name: Install Capacitor
         run: npm install @capacitor/core @capacitor/cli
 
-      - name: Init + Add Android
+      # ✅ CRÉATION PROPRE (isolée)
+      - name: Create temp Android project
         run: |
-          npx cap init dosco com.dosco.game --web-dir=dist
+          mkdir mobile
+          cd mobile
+          npm init -y
+          npm install @capacitor/core @capacitor/cli
+          npx cap init dosco com.dosco.game --web-dir=../dist
           npx cap add android
 
-      - name: Copy
-        run: npx cap copy
+      - name: Copy build to Android
+        run: |
+          cd mobile
+          npx cap copy android
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -44,7 +52,7 @@ jobs:
 
       - name: Build APK
         run: |
-          cd android
+          cd mobile/android
           chmod +x gradlew
           ./gradlew assembleDebug
 
@@ -52,4 +60,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dosco-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
