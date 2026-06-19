@@ -11,52 +11,50 @@ jobs:
 
     steps:
 
+      # ✅ Clone repo
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ✅ Node
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      # ✅ INSTALL PROJET PRINCIPAL
+      # ✅ Installer dépendances React
       - name: Install deps
         run: npm install
 
-      # ✅ BUILD REACT
+      # ✅ Build Vite
       - name: Build app
         run: npm run build
 
-      # ✅ CRÉER PROJET MOBILE ISOLÉ
+      # ✅ Créer projet mobile propre
       - name: Create mobile project
         run: |
           mkdir mobile
           cd mobile
           npm init -y
-          npm install @capacitor/core @capacitor/cli
 
+          # ✅ INSTALL COMPLET (CORRECTION ICI)
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+
+          # ✅ Init Capacitor
           npx cap init dosco com.dosco.game
+
+          # ✅ Injecter build web
           mkdir www
           cp -r ../dist/* www/
 
+          # ✅ Ajouter Android
           npx cap add android
 
-      # ✅ BUILD ANDROID
+      # ✅ Setup Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
+      # ✅ Build APK
       - name: Build APK
-        run: |
-          cd mobile/android
-          chmod +x gradlew
-          ./gradlew assembleDebug
-
-      # ✅ EXPORT APK
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: dosco-apk
-          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
