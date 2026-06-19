@@ -2,27 +2,30 @@ name: Build DOSCO APK
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      # ✅ React deps
-      - run: npm install
+      - name: Install web dependencies
+        run: npm install
 
-      # ✅ Build web
-      - run: npm run build
+      - name: Build web app
+        run: npm run build
 
-      # ✅ Mobile project
-      - name: Create mobile project
+      - name: Create Capacitor Android project
         run: |
           mkdir mobile
           cd mobile
@@ -33,27 +36,53 @@ jobs:
           cp -r ../dist/* www/
           npx cap add android
 
-      # ✅ Java
-      - uses: actions/setup-java@v4
+      - name: Patch Gradle version
+        run: |
+          cd mobile/android
+
+          echo "Before patch:"
+          cat gradle/wrapper/gradle-wrapper.properties
+
+          sed -i -E 's#gradle-[0-9.]+-(bin|all)\.zip#gradle-8.7-bin.zip#g' gradle/wrapper/gradle-wrapper.properties
+
+          echo "After patch:"
+          cat gradle/wrapper/gradle-wrapper.properties
+
+      - name: Patch Android Gradle Plugin if present
+        run: |
+          cd mobile/android
+
+          if [ -f build.gradle ]; then
+            sed -i -E "s/com.android.tools.build:gradle:[0-9.]+/com.android.tools.build:gradle:8.5.2/g" build.gradle
+          fi
+
+          if [ -f build.gradle.kts ]; then
+            sed -i -E 's/id\("com.android.application"\) version "[0-9.]+" apply false/id("com.android.application") version "8.5.2" apply false/g' build.gradle.kts
+          fi
+
+          echo "Gradle files patched"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      # ✅ 🔥 FIX CRITIQUE GRADLE
-      - name: Fix Gradle environment
+      - name: Clean Gradle environment
         run: |
-          rm -rf ~/.gradle
+          rm -rf ~/.gradle/caches
+          rm -rf ~/.gradle/daemon
+          rm -rf ~/.gradle/native
           mkdir -p ~/.gradle
 
-      # ✅ Build APK propre
       - name: Build APK
         run: |
           cd mobile/android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace --warning-mode all
 
-      # ✅ Upload
-      - uses: actions/upload-artifact@v4
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: dosco-apk
           path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
