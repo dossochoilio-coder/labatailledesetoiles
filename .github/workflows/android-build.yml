@@ -11,7 +11,7 @@ jobs:
 
     steps:
 
-      # ✅ Clone repo
+      # ✅ Cloner repo
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -21,11 +21,11 @@ jobs:
         with:
           node-version: 18
 
-      # ✅ Installer dépendances React
+      # ✅ Dépendances React
       - name: Install deps
         run: npm install
 
-      # ✅ Build Vite
+      # ✅ Build web
       - name: Build app
         run: npm run build
 
@@ -36,20 +36,23 @@ jobs:
           cd mobile
           npm init -y
 
-          # ✅ INSTALL COMPLET (CORRECTION ICI)
+          # ✅ INSTALLATION COMPLET
           npm install @capacitor/core @capacitor/cli @capacitor/android
 
-          # ✅ Init Capacitor
-          npx cap init dosco com.dosco.game
+          # ✅ INIT AVEC web-dir (CRITIQUE)
+          npx cap init dosco com.dosco.game --web-dir=www
 
-          # ✅ Injecter build web
+          # ✅ Copier dist vers www
           mkdir www
           cp -r ../dist/* www/
 
-          # ✅ Ajouter Android
+          # ✅ SYNC AVANT ADD
+          npx cap sync
+
+          # ✅ AJOUT ANDROID (APRÈS SYNC)
           npx cap add android
 
-      # ✅ Setup Java
+      # ✅ Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -63,7 +66,7 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      # ✅ Upload APK
+      # ✅ Export APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
