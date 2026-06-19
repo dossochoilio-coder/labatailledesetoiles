@@ -10,47 +10,55 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout
+      # ✅ Récupération du repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Node
+      # ✅ Node
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      # 3. Installer dépendances
+      # ✅ Installer dépendances
       - name: Install dependencies
         run: npm install
 
-      # 4. Build React
+      # ✅ Build React
       - name: Build web app
         run: npm run build
 
-      # 5. Capacitor
+      # ✅ Installer Capacitor
+      - name: Install Capacitor CLI
+        run: npm install @capacitor/core @capacitor/cli
+
+      # ✅ Génération Android (IMPORTANT !!!)
+      - name: Generate Android project
+        run: |
+          npx cap init dosco com.dosco.game
+          npx cap add android
+
+      # ✅ Copier fichiers web
       - name: Sync Capacitor
         run: |
-          npm install @capacitor/core @capacitor/cli
-          npx cap add android || true
           npx cap copy
           npx cap sync
 
-      # 6. Java
+      # ✅ Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      # 7. Build APK
+      # ✅ Build APK
       - name: Build Debug APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      # 8. Upload APK (FIX CRITIQUE ICI)
+      # ✅ Upload APK
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
