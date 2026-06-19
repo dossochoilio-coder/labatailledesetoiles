@@ -15,10 +15,13 @@ jobs:
         with:
           node-version: 18
 
+      # ✅ React deps
       - run: npm install
 
+      # ✅ Build web
       - run: npm run build
 
+      # ✅ Mobile project
       - name: Create mobile project
         run: |
           mkdir mobile
@@ -30,17 +33,26 @@ jobs:
           cp -r ../dist/* www/
           npx cap add android
 
+      # ✅ Java
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
+      # ✅ 🔥 FIX CRITIQUE GRADLE
+      - name: Fix Gradle environment
+        run: |
+          rm -rf ~/.gradle
+          mkdir -p ~/.gradle
+
+      # ✅ Build APK propre
       - name: Build APK
         run: |
           cd mobile/android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --no-daemon --stacktrace --warning-mode all
 
+      # ✅ Upload
       - uses: actions/upload-artifact@v4
         with:
           name: dosco-apk
