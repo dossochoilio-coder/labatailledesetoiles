@@ -10,22 +10,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    env:
+      GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx2g"
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      - name: Install web dependencies
+      # ✅ Install web deps
+      - name: Install dependencies
         run: npm install
 
+      # ✅ Build React/Vite
       - name: Build web app
         run: npm run build
 
-      - name: Create Capacitor Android project
+      # ✅ Create Capacitor Android project
+      - name: Create mobile project
         run: |
           mkdir mobile
           cd mobile
@@ -36,85 +40,33 @@ jobs:
           cp -r ../dist/* www/
           npx cap add android
 
-      - name: Force Gradle 8.7
-        run: |
-          cd mobile/android
-
-          echo "----- BEFORE PATCH -----"
-          cat gradle/wrapper/gradle-wrapper.properties
-
-          python3 - <<'PY'
-          from pathlib import Path
-
-          p = Path("gradle/wrapper/gradle-wrapper.properties")
-          text = p.read_text()
-
-          lines = []
-          found = False
-
-          for line in text.splitlines():
-              if line.startswith("distributionUrl="):
-                  lines.append("distributionUrl=https\\://services.gradle.org/distributions/gradle-8.7-bin.zip")
-                  found = True
-              else:
-                  lines.append(line)
-
-          if not found:
-              lines.append("distributionUrl=https\\://services.gradle.org/distributions/gradle-8.7-bin.zip")
-
-          p.write_text("\\n".join(lines) + "\\n")
-          PY
-
-          echo "----- AFTER PATCH -----"
-          cat gradle/wrapper/gradle-wrapper.properties
-
-          grep "gradle-8.7-bin.zip" gradle/wrapper/gradle-wrapper.properties
-
-      - name: Patch Android Gradle Plugin
-        run: |
-          cd mobile/android
-
-          echo "----- PATCHING ANDROID GRADLE PLUGIN -----"
-
-          if [ -f build.gradle ]; then
-            sed -i -E "s/com.android.tools.build:gradle:[0-9.]+/com.android.tools.build:gradle:8.5.2/g" build.gradle
-            cat build.gradle
-          fi
-
-          if [ -f build.gradle.kts ]; then
-            sed -i -E 's/id\("com.android.application"\) version "[0-9.]+" apply false/id("com.android.application") version "8.5.2" apply false/g' build.gradle.kts
-            cat build.gradle.kts
-          fi
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      # ✅ Setup Java
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Clean Gradle environment
+      # ✅ 🔥 FIX CRITIQUE : Désactiver instrumentation Gradle (cause du crash bcprov)
+      - name: Fix Gradle compatibility
         run: |
-          rm -rf ~/.gradle/caches
-          rm -rf ~/.gradle/daemon
-          rm -rf ~/.gradle/native
           mkdir -p ~/.gradle
-          echo "org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8" >> ~/.gradle/gradle.properties
+          echo "org.gradle.java.compile-classpath-packaging=false" >> ~/.gradle/gradle.properties
           echo "org.gradle.parallel=false" >> ~/.gradle/gradle.properties
           echo "org.gradle.configureondemand=false" >> ~/.gradle/gradle.properties
 
+      # ✅ Clean cache (important en CI)
+      - name: Clean Gradle cache
+        run: rm -rf ~/.gradle/caches
+
+      # ✅ Build APK
       - name: Build APK
         run: |
           cd mobile/android
           chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
-          echo "----- GRADLE VERSION CHECK -----"
-          ./gradlew --version
-
-          echo "----- BUILD APK -----"
-          ./gradlew assembleDebug --no-daemon --stacktrace --no-build-cache --warning-mode all
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      # ✅ Upload APK
+      - uses: actions/upload-artifact@v4
         with:
           name: dosco-apk
           path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
