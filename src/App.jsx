@@ -1214,7 +1214,6 @@ const getPlayerStats = (playerId) => {
     wins: target.wins, losses: target.losses, pts: target.pts,
   };
 };
-
 const getMoves=(coord,board)=>{const star=board[coord];if(!star)return{moves:[],captures:[]};const dirs=DIRS[star.color][star.type];const{c,r}=toRC(coord);const moves=[],captures=[];for(const[dc,dr]of dirs){const dest=toCoord(c+dc,r+dr);if(!dest)continue;const occ=board[dest];if(!occ)moves.push(dest);else if(occ.color!==star.color)captures.push(dest);}return{moves,captures};};
 const getAllCaptures=(color,board)=>{const res={};for(const[coord,star]of Object.entries(board)){if(star.color!==color)continue;const{captures}=getMoves(coord,board);if(captures.length>0)res[coord]=captures;}return res;};
 const getAllMoves=(color,board)=>{const all=[];const mandatory=getAllCaptures(color,board);const hasMandatory=Object.keys(mandatory).length>0;for(const[coord,star]of Object.entries(board)){if(star.color!==color)continue;const{moves,captures}=getMoves(coord,board);if(hasMandatory){for(const to of captures)all.push({from:coord,to,isCapture:true});}else{for(const to of moves)all.push({from:coord,to,isCapture:false});for(const to of captures)all.push({from:coord,to,isCapture:true});}}return all;};
