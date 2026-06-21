@@ -21,13 +21,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # Supprimer configs TS/JS conflictuels
       - name: Clean Capacitor configs
         run: |
           rm -f capacitor.config.ts
           rm -f capacitor.config.js
 
-      # Créer le config JSON directement dans le workflow
       - name: Create capacitor.config.json
         run: |
           cat > capacitor.config.json << 'CAPEOF'
@@ -37,18 +35,19 @@ jobs:
             "webDir": "dist",
             "bundledWebRuntime": false,
             "android": {
-              "allowMixedContent": true
+              "allowMixedContent": true,
+              "captureInput": true,
+              "webContentsDebuggingEnabled": false
             }
           }
           CAPEOF
-          echo "capacitor.config.json créé:"
           cat capacitor.config.json
 
       - name: Prepare dist
         run: |
           mkdir -p dist
           cp DOSCO_Standalone.html dist/index.html
-          echo "dist/index.html prêt"
+          echo "dist/index.html: $(wc -c < dist/index.html) bytes"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -64,17 +63,36 @@ jobs:
           if [ ! -d "android" ]; then
             npx cap add android
           else
-            echo "Dossier android déjà présent"
+            echo "android/ existe deja"
           fi
 
       - name: Sync Capacitor Android
         run: npx cap sync android
 
+      - name: Configure Android network security
+        run: |
+          mkdir -p android/app/src/main/res/xml
+          cat > android/app/src/main/res/xml/network_security_config.xml << 'XMLEOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <network-security-config>
+            <base-config cleartextTrafficPermitted="true">
+              <trust-anchors>
+                <certificates src="system"/>
+              </trust-anchors>
+            </base-config>
+            <domain-config cleartextTrafficPermitted="true">
+              <domain includeSubdomains="true">localhost</domain>
+              <domain includeSubdomains="true">capacitor.localhost</domain>
+            </domain-config>
+          </network-security-config>
+          XMLEOF
+          echo "network_security_config.xml créé"
+
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
       - name: Build Debug APK
-        run: cd android && ./gradlew assembleDebug
+        run: cd android && ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
