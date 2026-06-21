@@ -6987,8 +6987,10 @@ export default function DOSCOApp(){
         </div>
       </div>
     );
-  }
-
+  
   return(
     <div style={{position:"fixed",inset:0,background:`radial-gradient(ellipse at center,#0a1226,${C.void})`,overflow:"hidden",
       fontFamily:"'Exo 2',sans-serif",userSelect:"none",WebkitUse
+                }
+    }
+      )
