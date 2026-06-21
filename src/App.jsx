@@ -1256,7 +1256,6 @@ const getPlayerStats = (playerId) => {
     wins: target.wins, losses: target.losses, pts: target.pts,
   };
 };
-};
 
 const getMoves=(coord,board)=>{const star=board[coord];if(!star)return{moves:[],captures:[]};const dirs=DIRS[star.color][star.type];const{c,r}=toRC(coord);const moves=[],captures=[];for(const[dc,dr]of dirs){const dest=toCoord(c+dc,r+dr);if(!dest)continue;const occ=board[dest];if(!occ)moves.push(dest);else if(occ.color!==star.color)captures.push(dest);}return{moves,captures};};
 const getAllCaptures=(color,board)=>{const res={};for(const[coord,star]of Object.entries(board)){if(star.color!==color)continue;const{captures}=getMoves(coord,board);if(captures.length>0)res[coord]=captures;}return res;};
