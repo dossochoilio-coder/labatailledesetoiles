@@ -21,21 +21,14 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # Supprimer capacitor.config.ts s'il existe (on utilise .js)
       - name: Use JS Capacitor config
-        run: |
-          rm -f capacitor.config.ts
-          echo "capacitor.config.ts supprimé — on utilise capacitor.config.js"
+        run: rm -f capacitor.config.ts
 
-      # Créer dist depuis DOSCO_Standalone.html
       - name: Prepare dist
         run: |
           mkdir -p dist
           cp DOSCO_Standalone.html dist/index.html
           echo "✅ dist/index.html prêt"
-
-      - name: Sync Capacitor Android
-        run: npx cap sync android
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -45,6 +38,19 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+
+      # Ajouter la plateforme Android si elle n'existe pas encore
+      - name: Add Android platform
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+            echo "✅ Plateforme Android ajoutée"
+          else
+            echo "✅ Dossier android déjà présent"
+          fi
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
