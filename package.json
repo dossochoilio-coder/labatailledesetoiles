@@ -4,18 +4,14 @@
   "description": "DOSCO — La Bataille des Étoiles",
   "private": true,
   "scripts": {
-    "dev": "vite",
-    "build": "vite build && npx cap sync android",
-    "preview": "vite preview",
-    "android": "npx cap run android",
-    "build:apk": "vite build && npx cap sync android && cd android && ./gradlew assembleDebug"
+    "build": "npm run prepare-dist && npx cap sync android",
+    "prepare-dist": "mkdir -p dist && cp DOSCO_Standalone.html dist/index.html"
   },
   "dependencies": {
     "@capacitor/android": "^5.0.0",
-    "@capacitor/cli": "^5.0.0",
     "@capacitor/core": "^5.0.0"
   },
   "devDependencies": {
-    "vite": "^5.0.0"
+    "@capacitor/cli": "^5.0.0"
   }
 }
