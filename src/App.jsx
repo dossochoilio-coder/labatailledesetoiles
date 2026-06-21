@@ -854,16 +854,16 @@ const audio = {
 // ════════════════════════════════════════════════════════════════
 // 🎵 DOSCO ORIGINAL SOUNDTRACK — Bande Originale v2
 //
-// 1. "Cosmos Awakening" (24s) — Menu · 118 BPM · Am harmonique
+// 1. "Cosmos Awakening" (30s) — Menu · 118 BPM · Am harmonique
 //    Intro pad → Arpège → Mélodie → Build → Chorus épique → Outro
 //
-// 2. "Event Horizon"    (20s) — Combat · 140 BPM · Electro Industrial
+// 2. "Event Horizon"    (25s) — Combat · 140 BPM · Electro Industrial
 //    Tension → Drop brutal → Solo lead → 2e Drop + stabs
 //
-// 3. "Supernova"        (12s) — Victoire · 128 BPM · La Majeur
+// 3. "Supernova"        (15s) — Victoire · 128 BPM · La Majeur
 //    Sweep spectaculaire → Explosion harmonique → Climax + tierce
 //
-// 4. "Into The Void"    (12s) — Défaite · Cinématique
+// 4. "Into The Void"    (15s) — Défaite · Cinématique
 //    Cordes désaccordées → Basse chromatique → Mélodie plaintive
 //
 // Format: WAV 8-bit mono 11025Hz · Total: ~980KB
