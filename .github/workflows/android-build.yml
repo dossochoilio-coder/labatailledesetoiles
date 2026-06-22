@@ -37,106 +37,60 @@ jobs:
           }, null, 2));
           "
           rm -f capacitor.config.ts capacitor.config.js
+          cat capacitor.config.json
 
       - name: Prepare dist
         run: |
           mkdir -p dist
           cp DOSCO_Standalone.html dist/index.html
+          echo "HTML size: $(du -h dist/index.html | cut -f1)"
 
       - uses: android-actions/setup-android@v3
 
       - name: Add Android platform
         run: |
-          [ ! -d android ] && npx cap add android || true
+          [ ! -d android ] && npx cap add android || echo "exists"
 
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Write MainActivity.java with NanoHTTPD
-        run: |
-          MAIN="android/app/src/main/java/com/dosco/labatailledesetoiles/MainActivity.java"
-          node -e "
-          var code = [
-            'package com.dosco.labatailledesetoiles;',
-            'import android.os.Bundle;',
-            'import android.webkit.WebSettings;',
-            'import android.webkit.WebView;',
-            'import com.getcapacitor.BridgeActivity;',
-            '',
-            'public class MainActivity extends BridgeActivity {',
-            '  @Override',
-            '  public void onCreate(Bundle savedInstanceState) {',
-            '    super.onCreate(savedInstanceState);',
-            '  }',
-            '',
-            '  @Override',
-            '  protected void onResume() {',
-            '    super.onResume();',
-            '    try {',
-            '      WebView wv = getBridge().getWebView();',
-            '      WebSettings ws = wv.getSettings();',
-            '      ws.setJavaScriptEnabled(true);',
-            '      ws.setDomStorageEnabled(true);',
-            '      ws.setDatabaseEnabled(true);',
-            '      ws.setAllowFileAccess(true);',
-            '      ws.setAllowContentAccess(true);',
-            '      ws.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);',
-            '      ws.setCacheMode(WebSettings.LOAD_DEFAULT);',
-            '      ws.setMediaPlaybackRequiresUserGesture(false);',
-            '      if (android.os.Build.VERSION.SDK_INT >= 19) {',
-            '        WebView.setWebContentsDebuggingEnabled(false);',
-            '      }',
-            '    } catch (Exception e) { e.printStackTrace(); }',
-            '  }',
-            '}'
-          ].join(\"\\n\");
-          require('fs').writeFileSync('$MAIN', code);
-          console.log('MainActivity.java written');
-          "
-
       - name: Patch AndroidManifest
         run: |
           M=android/app/src/main/AndroidManifest.xml
-          # largeHeap + hardwareAccelerated + cleartext
-          python3 -c "
+          python3 - << 'PY'
           import re
-          with open('$M') as f: c = f.read()
-          # add attributes to application tag
-          c = re.sub(
-            r'(<application\b[^>]*)(>)',
-            r'\1 android:largeHeap=\"true\" android:hardwareAccelerated=\"true\">',
-            c, count=1
-          )
-          # add cleartext permission if missing
-          if 'usesCleartextTraffic' not in c:
-            c = c.replace(
-              'android:hardwareAccelerated=\"true\">',
-              'android:hardwareAccelerated=\"true\" android:usesCleartextTraffic=\"true\">'
-            )
-          # add INTERNET permission if missing
+          with open('android/app/src/main/AndroidManifest.xml') as f:
+              c = f.read()
+          if 'largeHeap' not in c:
+              c = re.sub(
+                  r'(<application\b)',
+                  r'\1 android:largeHeap="true" android:hardwareAccelerated="true"',
+                  c, count=1
+              )
           if 'INTERNET' not in c:
-            c = c.replace('<application', '<uses-permission android:name=\"android.permission.INTERNET\"/>\n    <application')
-          with open('$M','w') as f: f.write(c)
-          print('AndroidManifest patched')
-          "
-          grep -E "largeHeap|hardwareAccelerated|INTERNET" $M
+              c = c.replace(
+                  '<application',
+                  '<uses-permission android:name="android.permission.INTERNET"/>\n    <application'
+              )
+          with open('android/app/src/main/AndroidManifest.xml', 'w') as f:
+              f.write(c)
+          print('AndroidManifest OK')
+          PY
+          grep -E "largeHeap|INTERNET" android/app/src/main/AndroidManifest.xml
 
       - name: Write network_security_config.xml
         run: |
           mkdir -p android/app/src/main/res/xml
-          cat > android/app/src/main/res/xml/network_security_config.xml << 'XML'
-          <?xml version="1.0" encoding="utf-8"?>
+          python3 -c "
+          xml = '''<?xml version=\"1.0\" encoding=\"utf-8\"?>
           <network-security-config>
-            <base-config cleartextTrafficPermitted="true">
-              <trust-anchors><certificates src="system"/></trust-anchors>
+            <base-config cleartextTrafficPermitted=\"true\">
+              <trust-anchors><certificates src=\"system\"/></trust-anchors>
             </base-config>
-          </network-security-config>
-          XML
-
-      - name: Add billing dependency
-        run: |
-          G=android/app/build.gradle
-          grep -q 'billingclient' $G || sed -i '/^dependencies {/a\    implementation "com.android.billingclient:billing:6.0.1"' $G
+          </network-security-config>'''
+          open('android/app/src/main/res/xml/network_security_config.xml','w').write(xml)
+          print('network_security_config.xml OK')
+          "
 
       - name: Set version
         run: |
@@ -144,39 +98,79 @@ jobs:
           VC=$(date +%Y%m%d%H)
           sed -i "s/versionCode [0-9]*/versionCode $VC/" $G
           sed -i 's/versionName "[^"]*"/versionName "1.0.0"/' $G
+          echo "versionCode=$VC"
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      - name: Build release APK
-        run: cd android && ./gradlew assembleRelease --stacktrace
-
-      - name: Sign APK
+      - name: Build unsigned release APK
         run: |
+          cd android
+          ./gradlew assembleRelease \
+            -x lintVitalRelease \
+            --no-daemon \
+            --stacktrace \
+            2>&1 | tail -80
+
+      - name: Create keystore and sign
+        run: |
+          set -e
+
+          # 1. Generer le keystore
           keytool -genkeypair \
-            -keystore k.jks -alias k -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass Dosco2026 -keypass Dosco2026 \
-            -dname "CN=DOSCO,O=DOSCO,C=CM" -storetype JKS -noprompt
+            -keystore k.jks \
+            -alias k \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass Dosco2026 \
+            -keypass Dosco2026 \
+            -dname "CN=DOSCO,O=DOSCO,C=CM" \
+            -storetype JKS \
+            -noprompt
+          echo "Keystore OK: $(ls -la k.jks)"
 
-          APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
-          BT=$(ls -d ${ANDROID_HOME}/build-tools/*/ | sort -V | tail -1)
+          # 2. Trouver APK non signe
+          APK=$(find android/app/build/outputs/apk/release -name "*.apk" 2>/dev/null | head -1)
+          if [ -z "$APK" ]; then
+            echo "ERROR: APK not found"
+            find android/app/build/outputs -type f 2>/dev/null
+            exit 1
+          fi
+          echo "APK: $APK ($(du -h $APK | cut -f1))"
 
-          ${BT}zipalign -v -p 4 "$APK" aligned.apk
+          # 3. Build tools
+          BT=$(ls -d ${ANDROID_HOME}/build-tools/*/ 2>/dev/null | sort -V | tail -1)
+          echo "Build tools: $BT"
+
+          # 4. Zipalign
+          ${BT}zipalign -f -v -p 4 "$APK" aligned.apk
+          echo "Zipalign OK"
+
+          # 5. Signer
           ${BT}apksigner sign \
-            --ks k.jks --ks-key-alias k \
-            --ks-pass pass:Dosco2026 --key-pass pass:Dosco2026 \
-            --out dosco.apk aligned.apk
-          ${BT}apksigner verify dosco.apk && echo "SIGNATURE OK"
-          echo "Taille: $(du -h dosco.apk | cut -f1)"
+            --ks k.jks \
+            --ks-key-alias k \
+            --ks-pass pass:Dosco2026 \
+            --key-pass pass:Dosco2026 \
+            --out dosco.apk \
+            aligned.apk
+          echo "Signature OK"
 
-      - uses: actions/upload-artifact@v4
+          # 6. Verifier
+          ${BT}apksigner verify dosco.apk
+          echo "APK final: $(du -h dosco.apk | cut -f1)"
+
+      - name: Upload KEYSTORE
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: KEYSTORE
+          name: KEYSTORE-SAUVEGARDEZ
           path: k.jks
           retention-days: 90
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: DOSCO-APK
           path: dosco.apk
