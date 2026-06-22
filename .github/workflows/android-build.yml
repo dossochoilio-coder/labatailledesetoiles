@@ -30,7 +30,7 @@ jobs:
         run: |
           cat > capacitor.config.json << 'CAPEOF'
           {
-            "appId": "com.dosco.bataille.etoiles",
+            "appId": "com.dosco.labatailledesetoiles",
             "appName": "DOSCO",
             "webDir": "dist",
             "bundledWebRuntime": false,
@@ -105,87 +105,68 @@ jobs:
           VERSION_CODE=$(date +%Y%m%d%H)
           sed -i "s/versionCode .*/versionCode $VERSION_CODE/" "$GRADLE_FILE" || true
           sed -i "s/versionName .*/versionName \"1.0.0\"/" "$GRADLE_FILE" || true
-          echo "Version 1.0.0 — code $VERSION_CODE"
+          echo "Version 1.0.0 - code $VERSION_CODE"
 
-      # ── KEYSTORE ──────────────────────────────────────────────────────
-      # Si vous avez un keystore dans les secrets GitHub → utilise les secrets
-      # Sinon → crée un keystore de test automatiquement
-      - name: Setup keystore
+      - name: Create upload keystore
         run: |
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "Utilisation du keystore depuis les secrets GitHub"
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > dosco.keystore
-            echo "KEYSTORE_PATH=dosco.keystore" >> $GITHUB_ENV
-            echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
-            echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
-            echo "STORE_PASSWORD=${{ secrets.STORE_PASSWORD }}" >> $GITHUB_ENV
-          else
-            echo "Creation d'un keystore de test (upload keystore)"
-            keytool -genkey -v \
-              -keystore dosco-upload.keystore \
-              -alias dosco-key \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -storepass doscostore2026 \
-              -keypass doscokey2026 \
-              -dname "CN=DOSCO, OU=Game, O=DOSCO Games, L=Yaounde, S=Centre, C=CM"
-            echo "KEYSTORE_PATH=dosco-upload.keystore" >> $GITHUB_ENV
-            echo "KEY_ALIAS=dosco-key" >> $GITHUB_ENV
-            echo "KEY_PASSWORD=doscokey2026" >> $GITHUB_ENV
-            echo "STORE_PASSWORD=doscostore2026" >> $GITHUB_ENV
-            echo "Keystore de test cree"
-          fi
+          keytool -genkey -v \
+            -keystore dosco-upload.keystore \
+            -alias dosco-key \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass doscostore2026 \
+            -keypass doscokey2026 \
+            -dname "CN=DOSCO, OU=Game, O=DOSCO Games, L=Yaounde, S=Centre, C=CM"
+          echo "Keystore cree avec succes"
+          ls -la dosco-upload.keystore
 
       - name: Configure signing in build.gradle
         run: |
           GRADLE_FILE="android/app/build.gradle"
-          KEYSTORE_ABS="$(pwd)/$KEYSTORE_PATH"
-
-          # Injecter la config de signature dans build.gradle
+          KEYSTORE_ABS="$(pwd)/dosco-upload.keystore"
           cat >> "$GRADLE_FILE" << GRADLEOF
 
-          android.signingConfigs {
-            release {
-              storeFile file("$KEYSTORE_ABS")
-              storePassword "$STORE_PASSWORD"
-              keyAlias "$KEY_ALIAS"
-              keyPassword "$KEY_PASSWORD"
-            }
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file("${KEYSTORE_ABS}")
+                      storePassword "doscostore2026"
+                      keyAlias "dosco-key"
+                      keyPassword "doscokey2026"
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
           }
-          android.buildTypes.release.signingConfig = android.signingConfigs.release
           GRADLEOF
-          echo "Signature configuree dans build.gradle"
+          echo "Signature configuree"
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      # ── BUILD AAB (format recommande pour Play Store) ─────────────────
       - name: Build Release AAB
         run: cd android && ./gradlew bundleRelease --stacktrace
 
-      # ── BUILD APK signe (pour tests sur appareil) ─────────────────────
       - name: Build Release APK
         run: cd android && ./gradlew assembleRelease --stacktrace
 
-      - name: Verify outputs
+      - name: List build outputs
         run: |
           echo "=== Fichiers generes ==="
-          find android/app/build/outputs -name "*.aab" -o -name "*.apk" 2>/dev/null | while read f; do
-            echo "  $(du -h $f | cut -f1)  $f"
-          done
+          find android/app/build/outputs -name "*.aab" -o -name "*.apk" 2>/dev/null | xargs -I{} sh -c 'echo "  $(du -h {} | cut -f1)  {}"'
 
-      # ── UPLOAD KEYSTORE (IMPORTANT : a telecharger et conserver !) ────
-      - name: Upload keystore for safekeeping
+      - name: Upload keystore - SAUVEGARDEZ CE FICHIER
         uses: actions/upload-artifact@v4
-        if: "!contains(env.KEYSTORE_PATH, 'upload')" == false
         with:
-          name: dosco-keystore-SAUVEGARDEZ-CE-FICHIER
-          path: ${{ env.KEYSTORE_PATH }}
+          name: KEYSTORE-dosco-upload-SAUVEGARDEZ
+          path: dosco-upload.keystore
           retention-days: 90
 
-      # ── UPLOAD AAB ────────────────────────────────────────────────────
-      - name: Upload AAB (Play Store)
+      - name: Upload AAB Play Store
         uses: actions/upload-artifact@v4
         with:
           name: dosco-release-aab-playstore
@@ -193,8 +174,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      # ── UPLOAD APK (tests directs) ────────────────────────────────────
-      - name: Upload APK (test direct)
+      - name: Upload APK signe
         uses: actions/upload-artifact@v4
         with:
           name: dosco-release-apk-signe
