@@ -27,7 +27,6 @@ jobs:
       - name: Install TypeScript
         run: npm install -D typescript
 
-      # ✅ CONFIGURATION CAPACITOR (FIX CRITIQUE)
       - name: Write capacitor.config.js
         run: |
           cat <<EOF > capacitor.config.js
@@ -42,9 +41,7 @@ jobs:
           EOF
 
       - name: Clean old configs
-        run: |
-          rm -f capacitor.config.ts
-          rm -f capacitor.config.json
+        run: rm -f capacitor.config.ts capacitor.config.json
 
       - name: Prepare dist
         run: |
@@ -58,10 +55,13 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager "platforms;android-33" "build-tools;33.0.2"
 
-      # ✅ CORRECTION BUG "&&"
       - name: Add Android platform
         run: |
-          [ ! -d android ] && npx cap add android || echo "exists"
+          if [ ! -d android ]; then
+            npx cap add android
+          else
+            echo "exists"
+          fi
 
       - name: Sync Capacitor
         run: npx cap sync android
@@ -112,11 +112,7 @@ jobs:
 
           ${BT}apksigner verify dosco.apk
 
-          jarsigner \
-            -keystore k.jks \
-            -storepass Dosco2026 \
-            -keypass Dosco2026 \
-            "$AAB" k
+          jarsigner -keystore k.jks -storepass Dosco2026 -keypass Dosco2026 "$AAB" k
 
           cp "$AAB" dosco.aab
 
@@ -137,4 +133,3 @@ jobs:
         with:
           name: SAVE-KEYSTORE
           path: k.jks
-``
