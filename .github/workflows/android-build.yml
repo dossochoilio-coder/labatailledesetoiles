@@ -1,4 +1,4 @@
-name: Build DOSCO APK
+name: Build DOSCO APK + AAB
 
 on:
   push:
@@ -8,8 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
 
+    steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
@@ -36,23 +36,19 @@ jobs:
             android: { allowMixedContent: true }
           }, null, 2));
           "
-          rm -f capacitor.config.ts capacitor.config.js
-          cat capacitor.config.json
 
       - name: Prepare dist
         run: |
           mkdir -p dist
           cp DOSCO_Standalone.html dist/index.html
-          echo "HTML size: $(du -h dist/index.html | cut -f1)"
 
       - uses: android-actions/setup-android@v3
 
-      # ✅ FIX CRITIQUE (ANDROID SDK 33)
-      - name: Install Android SDK 33
+      # ✅ FIX SDK ANDROID
+      - name: Install Android SDK
         run: |
           yes | sdkmanager --licenses
-          sdkmanager "platforms;android-33"
-          sdkmanager "build-tools;33.0.2"
+          sdkmanager "platforms;android-33" "build-tools;33.0.2"
 
       - name: Add Android platform
         run: |
@@ -61,69 +57,23 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Patch AndroidManifest
-        run: |
-          python3 - << 'PY'
-          import re
-
-          path = 'android/app/src/main/AndroidManifest.xml'
-          with open(path) as f:
-              c = f.read()
-
-          if 'largeHeap' not in c:
-              c = re.sub(
-                  r'(<application\b)',
-                  r'\1 android:largeHeap="true" android:hardwareAccelerated="true"',
-                  c, count=1
-              )
-
-          if 'INTERNET' not in c:
-              c = c.replace(
-                  '<application',
-                  '<uses-permission android:name="android.permission.INTERNET"/>\n    <application'
-              )
-
-          with open(path, 'w') as f:
-              f.write(c)
-
-          print("AndroidManifest OK")
-          PY
-
-      - name: Write network_security_config.xml
-        run: |
-          mkdir -p android/app/src/main/res/xml
-          cat > android/app/src/main/res/xml/network_security_config.xml <<EOF
-          <?xml version="1.0" encoding="utf-8"?>
-          <network-security-config>
-            <base-config cleartextTrafficPermitted="true">
-              <trust-anchors>
-                <certificates src="system" />
-              </trust-anchors>
-            </base-config>
-          </network-security-config>
-          EOF
-
-      - name: Set version
-        run: |
-          G=android/app/build.gradle
-          VC=$(date +%Y%m%d%H)
-          sed -i "s/versionCode [0-9]*/versionCode $VC/" $G
-          sed -i 's/versionName "[^"]*"/versionName "1.0.0"/' $G
-          echo "versionCode=$VC"
-
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
       # ✅ BUILD APK
-      - name: Build unsigned release APK
+      - name: Build APK
         run: |
           cd android
-          ./gradlew assembleRelease \
-            --no-daemon \
-            --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
-      # ✅ SIGN APK
-      - name: Create keystore and sign
+      # ✅ BUILD AAB (IMPORTANT)
+      - name: Build AAB
+        run: |
+          cd android
+          ./gradlew bundleRelease --no-daemon --stacktrace
+
+      # ✅ SIGN APK + AAB
+      - name: Sign packages
         run: |
           set -e
 
@@ -139,16 +89,12 @@ jobs:
             -storetype JKS \
             -noprompt
 
-          APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
-
-          if [ -z "$APK" ]; then
-            echo "ERROR: APK not found"
-            find android/app/build/outputs
-            exit 1
-          fi
-
           BT=$(ls -d ${ANDROID_HOME}/build-tools/*/ | sort -V | tail -1)
 
+          APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          AAB=$(find android/app/build/outputs/bundle/release -name "*.aab" | head -1)
+
+          # APK
           ${BT}zipalign -f -v -p 4 "$APK" aligned.apk
 
           ${BT}apksigner sign \
@@ -161,17 +107,29 @@ jobs:
 
           ${BT}apksigner verify dosco.apk
 
-      - name: Upload KEYSTORE
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: KEYSTORE-SAUVEGARDEZ
-          path: k.jks
-          retention-days: 90
+          # AAB
+          jarsigner \
+            -keystore k.jks \
+            -storepass Dosco2026 \
+            -keypass Dosco2026 \
+            "$AAB" k
+
+          cp "$AAB" dosco.aab
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: DOSCO-APK
           path: dosco.apk
-          retention-days: 30
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: DOSCO-AAB
+          path: dosco.aab
+
+      - name: Upload KEYSTORE
+        uses: actions/upload-artifact@v4
+        with:
+          name: SAVE-KEYSTORE
+          path: k.jks
