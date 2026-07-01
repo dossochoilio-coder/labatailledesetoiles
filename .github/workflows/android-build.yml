@@ -125,22 +125,37 @@ jobs:
           cd android
           ./gradlew bundleRelease --no-daemon --stacktrace
 
-      - name: Sign packages
+      - name: Restore or create signing keystore
         run: |
           set -e
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            # Réutiliser la clé PERMANENTE stockée dans les secrets GitHub
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > k.jks
+            echo "✅ Keystore permanent restauré depuis les secrets"
+          else
+            # Aucun secret défini : générer une clé (À FAIRE UNE SEULE FOIS, puis la sauvegarder)
+            echo "⚠️ Aucun KEYSTORE_BASE64 dans les secrets — génération d'une clé temporaire"
+            keytool -genkeypair \
+              -keystore k.jks \
+              -alias "${{ secrets.KEY_ALIAS }}" \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+              -keypass "${{ secrets.KEY_PASSWORD }}" \
+              -dname "CN=DOSCO,O=DOSCO,C=CM" \
+              -storetype JKS -noprompt
+          fi
+          # Afficher l'empreinte SHA1 pour vérification (doit correspondre à Google Play)
+          keytool -list -v -keystore k.jks \
+            -alias "${{ secrets.KEY_ALIAS }}" \
+            -storepass "${{ secrets.KEYSTORE_PASSWORD }}" 2>/dev/null | grep "SHA1:" || true
 
-          keytool -genkeypair \
-            -keystore k.jks \
-            -alias k \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass Dosco2026 \
-            -keypass Dosco2026 \
-            -dname "CN=DOSCO,O=DOSCO,C=CM" \
-            -storetype JKS \
-            -noprompt
-
+      - name: Sign packages
+        env:
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          set -e
           BT=$(ls -d ${ANDROID_HOME}/build-tools/*/ | sort -V | tail -1)
 
           APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
@@ -150,15 +165,15 @@ jobs:
 
           ${BT}apksigner sign \
             --ks k.jks \
-            --ks-key-alias k \
-            --ks-pass pass:Dosco2026 \
-            --key-pass pass:Dosco2026 \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass pass:"$KS_PASS" \
+            --key-pass pass:"$KEY_PASS" \
             --out dosco.apk \
             aligned.apk
 
           ${BT}apksigner verify dosco.apk
 
-          jarsigner -keystore k.jks -storepass Dosco2026 -keypass Dosco2026 "$AAB" k
+          jarsigner -keystore k.jks -storepass "$KS_PASS" -keypass "$KEY_PASS" "$AAB" "$KEY_ALIAS"
 
           cp "$AAB" dosco.aab
 
@@ -179,4 +194,3 @@ jobs:
         with:
           name: SAVE-KEYSTORE
           path: k.jks
-
