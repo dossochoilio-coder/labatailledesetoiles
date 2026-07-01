@@ -112,6 +112,25 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Set app version (versionCode + versionName)
+        run: |
+          GRADLE=android/app/build.gradle
+          # versionCode croissant : on part de 1 (déjà utilisé) + numéro de run GitHub
+          # -> garantit un code unique et toujours plus grand à chaque build
+          VCODE=$(( 1 + ${{ github.run_number }} ))
+          VNAME="1.0.${{ github.run_number }}"
+          echo "versionCode cible : $VCODE"
+          echo "versionName cible : $VNAME"
+          if [ -f "$GRADLE" ]; then
+            sed -i "s/versionCode [0-9]\+/versionCode $VCODE/" "$GRADLE"
+            sed -i "s/versionName \"[^\"]*\"/versionName \"$VNAME\"/" "$GRADLE"
+            echo "=== defaultConfig après modification ==="
+            grep -E "versionCode|versionName" "$GRADLE" || true
+            echo "✅ Version appliquée (code=$VCODE, name=$VNAME)"
+          else
+            echo "⚠️ build.gradle introuvable"
+          fi
+
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
