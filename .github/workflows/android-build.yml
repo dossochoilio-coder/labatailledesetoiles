@@ -63,6 +63,21 @@ jobs:
             echo "exists"
           fi
 
+      - name: Inject AD_ID permission into manifest
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          echo "=== Manifeste avant ==="
+          cat "$MANIFEST"
+          # Ajouter la permission AD_ID si absente (déclaration Play Console : l'app utilise un identifiant publicitaire)
+          if ! grep -q "com.google.android.gms.permission.AD_ID" "$MANIFEST"; then
+            sed -i 's#<application#<uses-permission android:name="com.google.android.gms.permission.AD_ID"/>\n\n    <application#' "$MANIFEST"
+            echo "=== Permission AD_ID ajoutée ==="
+          else
+            echo "AD_ID déjà présente"
+          fi
+          echo "=== Manifeste après ==="
+          cat "$MANIFEST"
+
       - name: Sync Capacitor
         run: npx cap sync android
 
