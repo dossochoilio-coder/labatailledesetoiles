@@ -55,7 +55,7 @@ jobs:
       - name: Install Android SDK
         run: |
           yes | sdkmanager --licenses
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Add Android platform
         run: |
@@ -94,19 +94,36 @@ jobs:
             echo "⚠️ dossier android-res introuvable"
           fi
 
-      - name: Force API 35 (targetSdk / compileSdk)
+      - name: Force API 36 (targetSdk / compileSdk)
         run: |
           VARS=android/variables.gradle
           if [ -f "$VARS" ]; then
             echo "=== variables.gradle avant ==="
             cat "$VARS"
-            sed -i 's/compileSdkVersion = [0-9]*/compileSdkVersion = 35/' "$VARS"
-            sed -i 's/targetSdkVersion = [0-9]*/targetSdkVersion = 35/' "$VARS"
+            sed -i 's/compileSdkVersion = [0-9]*/compileSdkVersion = 36/' "$VARS"
+            sed -i 's/targetSdkVersion = [0-9]*/targetSdkVersion = 36/' "$VARS"
             echo "=== variables.gradle après ==="
             cat "$VARS"
-            echo "✅ API 35 forcée dans variables.gradle"
+            echo "✅ API 36 forcée dans variables.gradle"
           else
             echo "⚠️ variables.gradle introuvable"
+          fi
+
+      - name: Force API 36 in app/build.gradle (si valeurs en dur)
+        run: |
+          GRADLE=android/app/build.gradle
+          if [ -f "$GRADLE" ]; then
+            echo "=== build.gradle avant (SDK) ==="
+            grep -E "compileSdk|targetSdk" "$GRADLE" || echo "(valeurs héritées de variables.gradle)"
+            # Ne modifie que si les valeurs sont écrites en dur (nombre après le mot-clé)
+            sed -i 's/compileSdk \+[0-9]\+/compileSdk 36/' "$GRADLE"
+            sed -i 's/compileSdkVersion \+[0-9]\+/compileSdkVersion 36/' "$GRADLE"
+            sed -i 's/targetSdk \+[0-9]\+/targetSdk 36/' "$GRADLE"
+            sed -i 's/targetSdkVersion \+[0-9]\+/targetSdkVersion 36/' "$GRADLE"
+            echo "=== build.gradle après (SDK) ==="
+            grep -E "compileSdk|targetSdk" "$GRADLE" || echo "(valeurs héritées de variables.gradle)"
+          else
+            echo "⚠️ build.gradle introuvable"
           fi
 
       - name: Sync Capacitor
@@ -130,6 +147,13 @@ jobs:
           else
             echo "⚠️ build.gradle introuvable"
           fi
+
+      - name: Vérifier le niveau d'API effectif
+        run: |
+          echo "=== variables.gradle ==="
+          cat android/variables.gradle || true
+          echo "=== app/build.gradle (extrait SDK/version) ==="
+          grep -E "compileSdk|targetSdk|minSdk|versionCode|versionName" android/app/build.gradle || true
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
@@ -213,3 +237,4 @@ jobs:
         with:
           name: SAVE-KEYSTORE
           path: k.jks
+
