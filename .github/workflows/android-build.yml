@@ -28,7 +28,21 @@ jobs:
         run: npm install -D typescript
 
       - name: Install Google Play Billing plugin
-        run: npm install @capacitor-community/in-app-purchases@^7.0.0 || npm install @capacitor-community/in-app-purchases || echo "plugin billing optionnel"
+        run: |
+          set -e
+          # Installation OBLIGATOIRE du plugin de facturation (nécessaire aux abonnements).
+          npm install @capacitor-community/in-app-purchases@^7.0.0
+          echo "✅ Plugin de facturation installé"
+
+      - name: Vérifier la présence du plugin de facturation
+        run: |
+          if [ -d node_modules/@capacitor-community/in-app-purchases ]; then
+            echo "✅ Plugin @capacitor-community/in-app-purchases présent"
+            cat node_modules/@capacitor-community/in-app-purchases/package.json | grep '"version"' || true
+          else
+            echo "❌ ERREUR : le plugin de facturation est absent — le build est arrêté."
+            exit 1
+          fi
 
       - name: Write capacitor.config.js
         run: |
@@ -237,4 +251,3 @@ jobs:
         with:
           name: SAVE-KEYSTORE
           path: k.jks
-
