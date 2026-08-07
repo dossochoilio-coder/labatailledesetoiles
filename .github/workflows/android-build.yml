@@ -30,15 +30,19 @@ jobs:
       - name: Install Google Play Billing plugin
         run: |
           set -e
-          # Installation OBLIGATOIRE du plugin de facturation (nécessaire aux abonnements).
-          npm install @capacitor-community/in-app-purchases@^7.0.0
-          echo "✅ Plugin de facturation installé"
+          # Détecter la version majeure de Capacitor installée pour choisir la version
+          # correspondante du plugin (@capgo/native-purchases suit la major de Capacitor).
+          CAP_VER=$(node -p "try{require('@capacitor/core/package.json').version.split('.')[0]}catch(e){'7'}")
+          echo "Capacitor majeur détecté : $CAP_VER"
+          # Installation OBLIGATOIRE du vrai plugin de facturation.
+          npm install @capgo/native-purchases@^${CAP_VER}.0.0 || npm install @capgo/native-purchases
+          echo "✅ Plugin @capgo/native-purchases installé"
 
       - name: Vérifier la présence du plugin de facturation
         run: |
-          if [ -d node_modules/@capacitor-community/in-app-purchases ]; then
-            echo "✅ Plugin @capacitor-community/in-app-purchases présent"
-            cat node_modules/@capacitor-community/in-app-purchases/package.json | grep '"version"' || true
+          if [ -d node_modules/@capgo/native-purchases ]; then
+            echo "✅ Plugin @capgo/native-purchases présent"
+            cat node_modules/@capgo/native-purchases/package.json | grep '"version"' || true
           else
             echo "❌ ERREUR : le plugin de facturation est absent — le build est arrêté."
             exit 1
@@ -77,6 +81,16 @@ jobs:
             npx cap add android
           else
             echo "exists"
+          fi
+
+      - name: Ajouter la permission BILLING au manifeste
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          if [ -f "$MANIFEST" ] && ! grep -q "com.android.vending.BILLING" "$MANIFEST"; then
+            sed -i 's#<application#<uses-permission android:name="com.android.vending.BILLING"/>\n\n    <application#' "$MANIFEST"
+            echo "✅ Permission BILLING ajoutée"
+          else
+            echo "Permission BILLING déjà présente ou manifeste introuvable"
           fi
 
       - name: Inject AD_ID permission into manifest
