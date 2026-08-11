@@ -64,6 +64,22 @@ jobs:
             exit 1
           fi
 
+      - name: Install App Update plugin (Google Play In-App Updates)
+        run: |
+          set -e
+          npm install @capawesome/capacitor-app-update@latest
+          echo "✅ Plugin @capawesome/capacitor-app-update installé"
+
+      - name: Vérifier la présence du plugin App Update
+        run: |
+          if [ -d node_modules/@capawesome/capacitor-app-update ]; then
+            echo "✅ Plugin @capawesome/capacitor-app-update présent"
+            cat node_modules/@capawesome/capacitor-app-update/package.json | grep '"version"' || true
+          else
+            echo "❌ ERREUR : le plugin App Update est absent — le build est arrêté."
+            exit 1
+          fi
+
       - name: Write capacitor.config.js
         run: |
           cat <<EOF > capacitor.config.js
