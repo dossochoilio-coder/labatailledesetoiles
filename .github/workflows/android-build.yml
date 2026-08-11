@@ -48,6 +48,22 @@ jobs:
             exit 1
           fi
 
+      - name: Install AdMob plugin
+        run: |
+          set -e
+          npm install @capacitor-community/admob@latest
+          echo "✅ Plugin @capacitor-community/admob installé"
+
+      - name: Vérifier la présence du plugin AdMob
+        run: |
+          if [ -d node_modules/@capacitor-community/admob ]; then
+            echo "✅ Plugin @capacitor-community/admob présent"
+            cat node_modules/@capacitor-community/admob/package.json | grep '"version"' || true
+          else
+            echo "❌ ERREUR : le plugin AdMob est absent — le build est arrêté."
+            exit 1
+          fi
+
       - name: Write capacitor.config.js
         run: |
           cat <<EOF > capacitor.config.js
@@ -162,6 +178,26 @@ jobs:
           fi
           echo "=== Manifeste après ==="
           cat "$MANIFEST"
+
+      - name: Ajouter l'App ID AdMob au manifeste
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          # ⚠️ ID d'application AdMob de TEST Google (safe, ne génère aucun revenu).
+          # Remplacer par le VRAI App ID de production (console AdMob → Applications
+          # → Android → cet App ID commence aussi par "ca-app-pub-" mais SANS "/",
+          # suivi d'un tilde, ex: ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY).
+          # Peut aussi être fourni via le secret GitHub ADMOB_APP_ID si défini.
+          ADMOB_APP_ID="${{ secrets.ADMOB_APP_ID }}"
+          if [ -z "$ADMOB_APP_ID" ]; then
+            ADMOB_APP_ID="ca-app-pub-3940256099942544~3347511713"
+            echo "⚠️ Secret ADMOB_APP_ID absent — utilisation de l'App ID de TEST Google"
+          fi
+          if [ -f "$MANIFEST" ] && ! grep -q "com.google.android.gms.ads.APPLICATION_ID" "$MANIFEST"; then
+            sed -i "s#</application>#    <meta-data android:name=\"com.google.android.gms.ads.APPLICATION_ID\" android:value=\"${ADMOB_APP_ID}\"/>\n    </application>#" "$MANIFEST"
+            echo "✅ Meta-data AdMob APPLICATION_ID ajoutée ($ADMOB_APP_ID)"
+          else
+            echo "Meta-data AdMob déjà présente ou manifeste introuvable"
+          fi
 
       - name: Inject DOSCO icons (Sirus + Rigel)
         run: |
