@@ -182,15 +182,12 @@ jobs:
       - name: Ajouter l'App ID AdMob au manifeste
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
-          # ⚠️ ID d'application AdMob de TEST Google (safe, ne génère aucun revenu).
-          # Remplacer par le VRAI App ID de production (console AdMob → Applications
-          # → Android → cet App ID commence aussi par "ca-app-pub-" mais SANS "/",
-          # suivi d'un tilde, ex: ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY).
-          # Peut aussi être fourni via le secret GitHub ADMOB_APP_ID si défini.
+          # App ID AdMob DOSCO (compte pub-4842522718903700).
+          # Peut être surchargé via le secret GitHub ADMOB_APP_ID si besoin
+          # (ex: build de test avec un autre compte AdMob).
           ADMOB_APP_ID="${{ secrets.ADMOB_APP_ID }}"
           if [ -z "$ADMOB_APP_ID" ]; then
-            ADMOB_APP_ID="ca-app-pub-3940256099942544~3347511713"
-            echo "⚠️ Secret ADMOB_APP_ID absent — utilisation de l'App ID de TEST Google"
+            ADMOB_APP_ID="ca-app-pub-4842522718903700~1951875872"
           fi
           if [ -f "$MANIFEST" ] && ! grep -q "com.google.android.gms.ads.APPLICATION_ID" "$MANIFEST"; then
             sed -i "s#</application>#    <meta-data android:name=\"com.google.android.gms.ads.APPLICATION_ID\" android:value=\"${ADMOB_APP_ID}\"/>\n    </application>#" "$MANIFEST"
