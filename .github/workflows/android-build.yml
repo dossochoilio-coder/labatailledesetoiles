@@ -89,33 +89,33 @@ jobs:
           if [ -f "$PGFILE" ]; then
             cat <<'EOF' >> "$PGFILE"
 
-# ============================================
-# Règles DOSCO pour R8
-# ============================================
+          # ============================================
+          # Règles DOSCO pour R8
+          # ============================================
 
-# Capacitor core : le pont JS <-> natif fonctionne par réflexion,
-# ces classes ne doivent jamais être supprimées ni renommées.
--keep class com.getcapacitor.** { *; }
--keepclassmembers class * extends com.getcapacitor.Plugin {
-    @com.getcapacitor.annotation.PluginMethod public *;
-}
--keep class * extends com.getcapacitor.Plugin
--keepattributes *Annotation*
--keepattributes JavascriptInterface
+          # Capacitor core : le pont JS <-> natif fonctionne par réflexion,
+          # ces classes ne doivent jamais être supprimées ni renommées.
+          -keep class com.getcapacitor.** { *; }
+          -keepclassmembers class * extends com.getcapacitor.Plugin {
+              @com.getcapacitor.annotation.PluginMethod public *;
+          }
+          -keep class * extends com.getcapacitor.Plugin
+          -keepattributes *Annotation*
+          -keepattributes JavascriptInterface
 
-# Interface JS <-> WebView (@JavascriptInterface)
--keepclassmembers class * {
-    @android.webkit.JavascriptInterface <methods>;
-}
+          # Interface JS <-> WebView (@JavascriptInterface)
+          -keepclassmembers class * {
+              @android.webkit.JavascriptInterface <methods>;
+          }
 
-# Plugin de facturation Google Play (@capgo/native-purchases)
--keep class com.android.billingclient.** { *; }
--keep class com.capgo.** { *; }
+          # Plugin de facturation Google Play (@capgo/native-purchases)
+          -keep class com.android.billingclient.** { *; }
+          -keep class com.capgo.** { *; }
 
-# Garde les noms de fichiers/lignes pour des traces de crash lisibles
--keepattributes SourceFile,LineNumberTable
--renamesourcefileattribute SourceFile
-EOF
+          # Garde les noms de fichiers/lignes pour des traces de crash lisibles
+          -keepattributes SourceFile,LineNumberTable
+          -renamesourcefileattribute SourceFile
+          EOF
             echo "✅ Règles ProGuard/R8 ajoutées à $PGFILE"
           else
             echo "⚠️ $PGFILE introuvable — R8 utilisera uniquement les règles par défaut de Capacitor"
