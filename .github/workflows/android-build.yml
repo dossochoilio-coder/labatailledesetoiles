@@ -154,6 +154,47 @@ jobs:
             echo "⚠️ build.gradle introuvable"
           fi
 
+      - name: Activer R8 en mode complet + réduction optimisée des ressources
+        run: |
+          set -e
+          GPROPS=gradle.properties
+          GRADLE=android/app/build.gradle
+
+          # ── 1) R8 mode complet ──
+          # Le mode complet applique des optimisations bien plus poussées
+          # (inlining, fusion de classes, obscurcissement plus agressif) que le
+          # mode "compatibilité" par défaut. C'est le principal levier derrière
+          # le message Play Console "améliorez la mémoire et les performances".
+          touch "$GPROPS"
+          sed -i '/android.enableR8.fullMode\s*=\s*false/d' "$GPROPS"
+          if ! grep -q "android.enableR8.fullMode" "$GPROPS"; then
+            echo "android.enableR8.fullMode=true" >> "$GPROPS"
+          fi
+
+          # ── 2) Réduction optimisée des ressources ──
+          # Intègre les ressources (drawables, layouts, etc.) au graphe
+          # d'optimisation du code plutôt que de les traiter séparément —
+          # supprime plus efficacement le code/les ressources inutilisés.
+          # Sans effet (ignoré) sur AGP 9+ où c'est déjà automatique.
+          if ! grep -q "android.r8.optimizedResourceShrinking" "$GPROPS"; then
+            echo "android.r8.optimizedResourceShrinking=true" >> "$GPROPS"
+          fi
+
+          echo "=== gradle.properties (extrait R8) ==="
+          grep -E "enableR8|optimizedResourceShrinking" "$GPROPS" || true
+
+          # ── 3) S'assurer d'utiliser le jeu de règles "optimize" ──
+          # proguard-android.txt contient -dontoptimize (désactive les
+          # optimisations R8) ; proguard-android-optimize.txt les active.
+          if [ -f "$GRADLE" ] && grep -q "getDefaultProguardFile('proguard-android.txt')" "$GRADLE"; then
+            sed -i "s/getDefaultProguardFile('proguard-android.txt')/getDefaultProguardFile('proguard-android-optimize.txt')/" "$GRADLE"
+            echo "✅ Bascule vers proguard-android-optimize.txt (optimisations activées)"
+          else
+            echo "proguard-android-optimize.txt déjà utilisé (ou introuvable) — rien à changer"
+          fi
+
+          echo "✅ R8 mode complet + réduction optimisée des ressources activés"
+
       - name: Ajouter la permission BILLING au manifeste
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
