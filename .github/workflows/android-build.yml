@@ -89,6 +89,31 @@ jobs:
             exit 1
           fi
 
+      - name: Install Edge-to-Edge Support plugin (Android 15+)
+        run: |
+          set -e
+          # Corrige les avertissements Play Console "affichage bord à bord" /
+          # "API dépréciées pour l'affichage de bord à bord" (compileSdk 36 =
+          # Android 15+, qui impose l'affichage plein écran par défaut).
+          CAP_VER=$(node -p "try{require('@capacitor/core/package.json').version.split('.')[0]}catch(e){'7'}")
+          echo "Capacitor majeur détecté : $CAP_VER"
+          if [ "$CAP_VER" = "7" ]; then
+            npm install @capawesome/capacitor-android-edge-to-edge-support@7.2.3
+          else
+            npm install @capawesome/capacitor-android-edge-to-edge-support@latest
+          fi
+          echo "✅ Plugin @capawesome/capacitor-android-edge-to-edge-support installé"
+
+      - name: Vérifier la présence du plugin Edge-to-Edge Support
+        run: |
+          if [ -d node_modules/@capawesome/capacitor-android-edge-to-edge-support ]; then
+            echo "✅ Plugin edge-to-edge présent"
+            cat node_modules/@capawesome/capacitor-android-edge-to-edge-support/package.json | grep '"version"' || true
+          else
+            echo "❌ ERREUR : le plugin edge-to-edge est absent — le build est arrêté."
+            exit 1
+          fi
+
       - name: Write capacitor.config.js
         run: |
           cat <<EOF > capacitor.config.js
@@ -97,7 +122,17 @@ jobs:
             appName: 'DOSCO',
             webDir: 'dist',
             server: { androidScheme: 'http' },
-            android: { allowMixedContent: true }
+            android: { allowMixedContent: true },
+            plugins: {
+              EdgeToEdge: {
+                backgroundColor: '#03040a',
+                statusBarColor: '#03040a',
+                navigationBarColor: '#03040a'
+              },
+              SystemBars: {
+                insetsHandling: 'disable'
+              }
+            }
           };
           EOF
 
