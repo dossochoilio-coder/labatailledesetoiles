@@ -114,6 +114,27 @@ jobs:
             exit 1
           fi
 
+      - name: Install App plugin (bouton retour Android)
+        run: |
+          set -e
+          # Plugin officiel Capacitor requis pour intercepter le bouton retour
+          # matériel Android (événement "backButton") — sans lui, le bouton
+          # retour quitte l'app au lieu de naviguer vers l'écran précédent.
+          CAP_VER=$(node -p "try{require('@capacitor/core/package.json').version.split('.')[0]}catch(e){'7'}")
+          echo "Capacitor majeur détecté : $CAP_VER"
+          npm install @capacitor/app@^${CAP_VER}.0.0 || npm install @capacitor/app@latest
+          echo "✅ Plugin @capacitor/app installé"
+
+      - name: Vérifier la présence du plugin App
+        run: |
+          if [ -d node_modules/@capacitor/app ]; then
+            echo "✅ Plugin @capacitor/app présent"
+            cat node_modules/@capacitor/app/package.json | grep '"version"' || true
+          else
+            echo "❌ ERREUR : le plugin App est absent — le build est arrêté."
+            exit 1
+          fi
+
       - name: Write capacitor.config.js
         run: |
           cat <<EOF > capacitor.config.js
