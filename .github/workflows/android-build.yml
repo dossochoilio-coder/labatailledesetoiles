@@ -399,12 +399,35 @@ jobs:
       - name: Build APK
         run: |
           cd android
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          # Nouvelle tentative automatique en cas d'erreur réseau transitoire
+          # (ex: 403 Forbidden ponctuel de repo.maven.apache.org) — 3 essais
+          # avec une courte pause, avant d'abandonner pour de bon.
+          n=0
+          until [ $n -ge 3 ]; do
+            ./gradlew assembleRelease --no-daemon --stacktrace && break
+            n=$((n+1))
+            echo "⚠️ Échec du build APK (tentative $n/3) — nouvel essai dans 20s…"
+            sleep 20
+          done
+          if [ $n -ge 3 ]; then
+            echo "❌ Échec du build APK après 3 tentatives."
+            exit 1
+          fi
 
       - name: Build AAB
         run: |
           cd android
-          ./gradlew bundleRelease --no-daemon --stacktrace
+          n=0
+          until [ $n -ge 3 ]; do
+            ./gradlew bundleRelease --no-daemon --stacktrace && break
+            n=$((n+1))
+            echo "⚠️ Échec du build AAB (tentative $n/3) — nouvel essai dans 20s…"
+            sleep 20
+          done
+          if [ $n -ge 3 ]; then
+            echo "❌ Échec du build AAB après 3 tentatives."
+            exit 1
+          fi
 
       - name: Restore or create signing keystore
         run: |
