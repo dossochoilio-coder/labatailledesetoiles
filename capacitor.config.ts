@@ -1,5 +1,5 @@
 {
-  "appId": "com.dosco.bataille.etoiles",
+  "appId": "com.dosco.batailledesetoiles",
   "appName": "DOSCO",
   "webDir": "dist",
   "bundledWebRuntime": false,
